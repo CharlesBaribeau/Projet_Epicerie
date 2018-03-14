@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="author" content="Éric Beaudry"></meta>
+<title>INF3105 / TP2</title>
+<link rel="stylesheet" type="text/css" href="../inf3105-tps.css">
+<link rel="stylesheet" type="text/css" href="../../inf3105-tps.css">
+</head>
+<body>
+
+
+<header>
+<div>
+<b>INF3105 — Structures de données et algorithmes</b>
+<br>
+Automne 2017
+</div>
+<div style="text-align: right; position: absolute; right: 1em">
+UQAM
+<br>
+Département d'informatique
+</div>
+</header>
+
+<h1>
+ Travail pratique #2 :
+ <br>Liste d'épicerie
+</h1>
+<div align="right" class="noPrint">
+<img height="180em" src="aliments-bio.jpg" alt="Source: https://www.metro.ca/userfiles/image/produit-a-decouvrir/sante-et-nutrition/manger-mieux/aliments-bio.jpg">
+</div>
+
+
+<div class="contenu"> <!-- Début contenu -->
+
+<h2 class="sans">Objectifs</h2>
+<ul>
+ <li>Implémenter un type générique d'arbres binaires de recherche de type AVL.</li>
+ <li>Appliquer les arbres binaires de recherche à une problématique.</li>
+ <li>Écrire un programme efficace en temps et en mémoire.</li>
+</ul>
+
+
+<h2>Problématique</h2>
+<p>
+Vous devez écrire un programme C++ nommé <code>tp2</code> qui recommande à des clients
+le trajet le plus court pour ramasser les produits sur leur liste d'épicerie.
+Une liste d'épicerie est composée de noms de produit avec leur quantité requise.
+Chaque client part de sa résidence, visite une ou plusieurs épiceries,
+et retourne ensuite à sa résidence.
+Chaque épicerie a un nom, est située à un emplacement et stocke un inventaire.
+Chaque produit dans l'inventaire est une date d'expiration.
+</p>
+
+<h3>Exemple</h3>
+<p>
+Soit la carte ci-bas où il y a 4 épiceries à proximité du Complexe des sciences de l'UQAM.
+</p>
+<img src="exemple0.png" alt="exemple" border="1">
+<p>
+Supposons l'inventaire des 4 épiceries comme suit.
+<table>
+<tr><th>Fou d'ici</th><th>IGA</th><th>Métro</th><th>Provigo</th></tr>
+<tr>
+  <td><ul>
+    <li>Fraises</li>
+    <li>Lait</li>
+    <li>Pain</li>
+  </ul></td>
+  <td><ul>
+    <li>Chocolat</li>
+    <li>Lait</li>
+    <li>Pommes</li>
+  </ul></td>
+  <td><ul>
+    <li>Chocolat</li>
+    <li>Lait</li>
+    <li>Oranges</li>
+  </ul></td>
+  <td><ul>
+    <li>Bleuets</li>
+    <li>Lait</li>
+    <li>Pain</li>
+  </ul></td>
+</tr>
+</table>
+</p>
+<p>
+Supposons les requêtes suivantes.
+<ol>
+ <li>Alice est au PK (premier point blue) et veut du Lait.
+     Le trajet le plus court est d'aller au Provigo qui est légèrement plus près que le Fou d'ici.
+ </li>
+ <li>Benoit est au PK et veut du Lait et des Pommes.
+     Son trajet le plus court est d'aller au IGA pour récupérer ces deux produits.
+ </li>
+ <li>Cloé est au PK et veut du Chocolat.
+     Son trajet le plus court est d'aller au IGA.
+ </li>
+ <li>Daniel est au PK et veut du Chocolat et du Pain.
+     Son trajet le plus court est d'aller au IGA et au Fou d'ici, ce qui est légèrement plus court que de passer au Métro et au Provigo.
+ </li>
+ <li>Eugénie est au PK et veut du Chocolat, du Pain et des Oranges.
+     Son trajet le plus court est d'aller au Métro.
+ </li>
+ <li>François est au PK et veut du Lait et tous les fruits (Bleuets, des Fraise, des Oranges et des Pommes).
+     Son trajet le plus court est d'aller dans l'ordre (ou désordre) : IGA, Fou d'ici, Provigo et Métro.
+ </li></ol>
+</p>
+
+<h3>Hypothèses</h3>
+<ol>
+<li>
+Comme pour le TP1, les déplacements se font en ligne droite sur la surface la Terre.
+La distance entre deux points (coordonnées latitude et longitude) sur la carte se calcule
+avec la fonction <tt>PointST::distance()</tt> fournie.
+Celle-ci retourne la longueur en mètres en faisant l'hypothèse que la Terre est une sphère parfaite d'un rayon de 6371 km.
+</li>
+<li>
+Lorsqu'un client visite plus d'une épicerie, il achète les produits sur sa liste dès la première occasion, et ce, selon l'ordre de visite des épiceries calculé.
+Par exemple, dans l'exemple précédent, François achètera le Lait à la première épicerie sur son trajet, soit au IGA.
+</li>
+<li>
+Les produits expirent à la date indiquée.
+Les produits expirés sont retirés de l'inventaire dès leur expiration.
+</li>
+<li>
+Lorsqu'un client achète un produit, il prend toujours les exemplaires ayant la date d'expiration la plus tardive.
+</li>
+</ol>
+
+<h2>Structure du programme</h2>
+<p>
+Un squelette de départ recommandé, mais optionnel, est disponible dans <a href="tp2.zip">tp2.zip</a>.
+</p>
+
+<h3>Syntaxe d'appel du programme tp2</h3>
+<p>
+Votre programme doit pouvoir être lancé en ligne de commande avec la syntaxe suivante :
+</p>
+<blockquote>
+<pre>./tp2 [nomfichier]</pre>
+</blockquote>
+<p>
+où <code>nomfichier</code> est optionnel.
+</p>
+<p>
+Si <code>nomfichier</code> est spécifié, alors votre programme doit lire dans <code>nomfichier</code> au moyen d'un flux de lecture C++ <code>std::ifstream</code>.
+Sinon, votre programme doit lire dans l'entrée standard (<i>stdin</i>) au moyen du flux d'entrée C++ <code>std::cin</code>.
+À noter que le squelette implémente déjà cela.
+</p>
+<p>
+Les résultats produits par votre programme doivent être écrits dans la sortie standard (<i>stdout</i>) à l'aide du flux de sortie C++ <code>std::cout</code>.
+</p>
+
+<h3>Format d'entrée et de sortie</h3>
+<p>
+Le flux d'entrée est une suite de commandes.
+Chaque commande débute avec un mot-clé en majuscules spécifiant son type.
+</p>
+
+<table border="1" cellpadding="2" cellspacing="1">
+<tbody>
+<tr valign="top" bgcolor="#d7eef4">
+<td>Commande</td>
+<td>Syntaxe et description</td>
+</tr>
+
+<tr valign="top">
+<td>DATE</td>
+<td>
+<pre>"DATE" date ";"</pre>
+<p>
+Spécifie la <span class="nouveau">nouvelle</span> date courante.
+<span class="nouveau">
+Il est garanti que la nouvelle date est plus grande (&gt;) que la précédente.
+La première date ne sera jamais avant le 2000-01-01.
+</span>
+</p><p>
+La date courante est importante pour déterminer les produits expirés.
+</p>
+<p>
+Toutes les dates dans le TP2 sont spécifiées dans le format <code>AAAA-MM-JJ</code>.
+Un début d'implémentation d'une classe <code>Date</code> est fourni dans les fichiers <code>date.h</code> et <code>date.cpp</code>.
+Vous pouvez la compléter ou créer votre propre type <code>Date</code>.
+<span class="nouveau">
+Il n'est pas nécessaire de valider les dates lues.
+Ainsi, vous n'avez pas à gérer le nombre de jours par mois et les années bissextiles.
+</span>
+</p>
+<p>
+Exemple d'entrée: 
+<pre>DATE 2017-10-17 ;</pre>
+</p>
+<p>
+Exemple de sortie: 
+<pre>OK</pre>
+</p>
+</td>
+</tr>
+
+<tr valign="top">
+<td>PLACER</td>
+<td>
+<pre>"PLACER" nom_épicerie position</pre>
+<p>
+Spécifie l'emplacement géographique d'une épicerie à une position décrite par des coordonnées (latitude,longitudes) en degrés.
+<span class="nouveau">
+Le nom d'épicerie est unique.
+</span>
+</p>
+<p>
+Exemple d'entrée: 
+<pre>PLACER	Foudici (45.506873,-73.568921)	;
+PLACER	IGA	(45.507798,-73.563369)	;
+PLACER	Métro	(45.510993,-73.576233)	;
+PLACER	Provigo	(45.509204,-73.571362)	;
+</pre>
+</p>
+<p>
+Exemple de sortie: 
+<pre>OK
+OK
+OK
+OK
+</pre>
+</p>
+</td>
+</tr>
+
+<tr valign="top">
+<td>APPROV</td>
+<td>
+<pre>"APPROV" nom_épicerie ":" (nom_produit quantité expiration)* ";"</pre>
+<p>
+Spécifie un réapprovisionnement de produits à une épicerie.
+<span class="nouveau">Il n'y aura pas d'approvisionnement d'une épicerie non placée.</span>
+</p>
+<p>
+Exemple d'entrée:
+<pre>APPROV Foudici	:
+Fraises 5	2017-10-28
+Lait	5	2017-10-28
+Pain	5	2017-10-28
+;
+APPROV IGA :
+Chocolat	3	2017-10-30
+Lait	4	2017-10-30
+Pommes	4	2017-10-30
+;
+APPROV Métro :
+Chocolat	2	2017-10-31
+Lait	2	2017-10-31
+Oranges	3	2017-10-31
+;
+APPROV Provigo :
+Bleuets	4	2017-11-01
+Lait	4	2017-11-01
+Pain	3	2017-11-01
+;
+</pre>
+</p>
+<p>
+Exemple de sortie:
+<pre>OK
+OK
+OK
+OK
+</pre>
+</p>
+<p class="nouveau">
+Un produit peut apparaît plusieurs fois, et ce, avec des dates d'expiration pouvant être différentes.
+Exemple:
+</p>
+<pre>APPROV Foudici	:
+Fraises 3	2017-10-27
+Fraises 2	2017-10-28
+Fraises 2	2017-10-29
+Fraises 1	2017-10-30
+Fraises 1	2017-10-30
+;
+</pre>
+</td>
+</tr>
+
+<tr valign="top">
+<td>RECOMMANDER</td>
+<td>
+<pre>"RECOMMANDER" position nbMaxÉpicerie 
+   distanceTotalMax ":" (nom_produit quantité)* ";" </pre>
+<p>
+Calcule et recommande le trajet le plus court pour une liste d'épicerie d'un client.
+Le client est à une position spécifiée en format (latitude,longitude).
+Les produits <b>ne</b> sont <b>pas</b> retirés de l'inventaire selon les quantités demandées.
+Si le trajet contient plus d'une épicerie, les produits sont achetés dès la première occasion.
+En sortie, la commande affiche la distance totale parcourue,
+arrondie au mètre près, suivi de la lettre <code>m</code>,
+un espace, et enfin la liste des épiceries dans l'ordre de visite.
+</p>
+<p>
+Dès qu'un produit sur la liste n'est pas en quantité suffisante,
+la liste est réputée impossible.
+Dans ce cas, il faut afficher <strike>0m IMPOSSIBLE</strike> <code class="nouveau">IMPOSSIBLE</code> en sortie.
+</p>
+<p>
+Exemple d'entrée:
+<pre>RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Lait 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Lait 1 Pommes 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Chocolat 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Chocolat 1 Pain 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Chocolat 1 Pain 1 Oranges 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Bleuets 1 Fraises 1 Oranges 1 Pommes 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Oranges 1 ;
+RECOMMANDER (45.507610,-73.564925) 4 999000 :
+ Fraises 1 ;
+RECOMMANDER (45.507610,-73.564925) 4 999000 :
+ Fraises 100 ;
+</pre>
+</p>
+<p>
+Exemple de sortie:
+<pre>452m  Provigo
+865m  IGA
+865m  IGA
+1154m  Foudici IGA
+1287m  Métro Provigo
+2260m  IGA Foudici Provigo Métro
+1265m  Métro
+644m  Foudici
+IMPOSSIBLE
+</pre>
+</p>
+<p class="nouveau">
+S'il existe plusieurs solutions optimales, il suffit d'afficher l'une d'elles.
+C'est notamment le cas dès que <tt>nbMaxÉpicerie</tt> &gt; 1,
+où l'ordre inversé d'une solution est aussi une autre solution valide.
+Par exemple, «<tt>1154m  IGA Foudici</tt>» est une solution optimale et tout aussi valide que «<tt>1154m Foudici IGA</tt>» dans l'exemple ci-haut.
+Avec <tt>nbMaxÉpicerie</tt> = 1, il pourrait avoir plus d'une solution optimale dans de très rares cas où il y aurait plus d'une épicerie satisfaisante à distance égale du client.
+</p>
+</td>
+</tr>
+
+<tr valign="top">
+<td>RAMASSER</td>
+<td>
+<pre>"RAMASSER" (nom_produit quantité)* ";" nom_épicerie* ";" </pre>
+<p>
+Ramasse les produits demandés en visitant les épiceries dans l'ordre spécifié.
+Les produits doivent être ramassés dès que possible (voir hypothèse 2 à la section 2.2).
+</p>
+<p>
+En sortie, la commande affiche "COMPLET" si et si seulement si tous les produits ont pu être récupérés.
+Sinon, "MANQUE" est affiché suivi de la liste des produits manquants avec leur quantité manquante.
+</p>
+<p>
+Exemple d'entrée:
+<pre>RAMASSER Chocolat 2 Lait 3 Pommes 3 ; IGA ;
+RAMASSER Chocolat 1 Lait 1 Pommes 2 ; IGA ;
+</pre>
+</p>
+<p>
+Exemple de sortie:
+<pre>COMPLET
+MANQUE Pommes 1	 ;
+</pre>
+</p>
+</td>
+</tr>
+
+<tr valign="top">
+<td>INVENTAIRE</td>
+<td>
+<pre>"INVENTAIRE" nom_épicerie ";"</pre>
+<p>
+Affiche sur une ligne l'inventaire courant dans l'épicerie demandée.
+La ligne est terminée par un point-virgule.
+Les produits en rupture de stock (quantité=0) ne devraient pas être affichés.
+</p>
+<p>
+Exemple d'entrée:
+<pre>INVENTAIRE Foudici	;
+INVENTAIRE IGA	;
+</pre>
+</p>
+<p>
+Exemple de sortie:
+<pre>Fraises 5	Lait 5	Pain 5	;
+;
+</pre>
+</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+<p>
+Les commandes doivent être traitées dans leur ordre d'arrivée (ordre d'apparition dans le fichier d'entrée).
+Une fois une commande lue, il faut la traiter immédiatement afin d'afficher son résultat avant de pouvoir lire la prochaine commande.
+</p>
+
+<p>
+Pour faciliter le <i>parsing</i> au moyen de <code>std::cin&gt;&gt;</code>, il y a au moins un espace blanc (espace, tabulation ou retour de ligne) après chaque chaine de caractère ou nombre.
+Les noms d'épicerie et de produit ne contiennent jamais d'espace blanc.
+</p>
+
+<h3>Exemples d'utilisation</h3>
+
+<h4>Exemple 1</h4>
+
+<pre>./tp2 &lt; exemple1.txt &gt; exemple1+.txt
+</pre>
+<table border="1">
+<tbody><tr>
+<td><a href="exemple1.txt">exemple1.txt</a></td>
+<td><a href="exemple1+.txt">exemple1+.txt</a></td>
+</tr>
+<tr valign="top">
+<td>
+<pre>
+DATE 2017-10-17 ;
+PLACER Foudici (45.506873,-73.568921) ;
+PLACER IGA (45.507798,-73.563369) ;
+PLACER Métro (45.510993,-73.576233) ;
+PLACER Provigo (45.509204,-73.571362) ;
+APPROV Foudici : Fraises 5 2017-10-28
+    Lait 5 2017-10-28 Pain 5 2017-10-28 ;
+APPROV IGA : Chocolat 3 2017-10-30
+    Lait 4 2017-10-30 Pommes 4 2017-10-30 ;
+APPROV Métro : Chocolat 2 2017-10-31 
+    Lait 2 2017-10-31 Oranges 3 2017-10-31 ;
+APPROV Provigo : Bleuets 4 2017-11-01 
+    Lait 4 2017-11-01 Pain 3 2017-11-01 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Lait 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Lait 1 Pommes 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Chocolat 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Chocolat 1 Pain 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Chocolat 1 Pain 1 Oranges 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Bleuets 1 Fraises 1 Oranges 1 Pommes 1 ;
+RECOMMANDER (45.509339,-73.568465) 4 999000 :
+ Oranges 1 ;
+RECOMMANDER (45.507610,-73.564925) 4 999000 :
+ Fraises 1 ;
+RECOMMANDER (45.507610,-73.564925) 4 999000 :
+ Fraises 100 ;
+RAMASSER Chocolat 2 Lait 3 Pommes 3 ; IGA ;
+RAMASSER Chocolat 1 Lait 1 Pommes 2 ; IGA ;
+INVENTAIRE Foudici ;
+INVENTAIRE IGA ;
+DATE 2017-11-02 ;
+INVENTAIRE Foudici ;
+INVENTAIRE IGA ;
+INVENTAIRE Métro ;
+INVENTAIRE Provigo ;
+</pre>
+</td>
+<td>
+<pre>
+OK
+OK
+OK
+OK
+OK
+
+OK
+
+OK
+
+OK
+
+OK
+
+452m  Provigo
+
+865m  IGA
+
+865m  IGA
+
+1154m  Foudici IGA
+
+1287m  Métro Provigo
+
+2260m  IGA Foudici Provigo Métro
+
+1265m  Métro
+
+644m  Foudici
+
+IMPOSSIBLE
+COMPLET
+MANQUE Pommes 1	 ;
+Fraises 5	Lait 5	Pain 5	;
+;
+OK
+;
+;
+;
+;
+</pre>
+</td>
+</tr>
+</tbody></table>
+
+<h4>Autres exemples</h4>
+<p>
+<span class="nouveau">
+Voir d'<a href="exemples.html">autres exemples</a>.
+</span>
+</p>
+
+
+<h2>Contraintes</h2>
+<h3>Librairies permises</h3>
+<p>Vous devez implémenter et utiliser vos propres structures de données.
+Pour l'instant, l'utilisation des conteneurs de la librairie standard de C++ (<i>Standard Template Library</i>) n'est pas permise.
+Ce sera permis plus tard dans le cours.
+</p>
+
+<h3>Environnement de développement</h3>
+<p>
+Relisez les <a href="../politiques.html">Politiques et les directives sur les outils informatiques dans le cours INF3105</a>.
+Votre TP2 doit pouvoir être compilé avec g++ version 4.8.
+</p>
+
+<h3>Taille des équipes</h3>
+<p>
+Vous pouvez faire ce travail en équipe de 1 ou 2.
+Toutefois, tous les membres de l'équipe doivent contribuer à l'ensemble du travail et non à seulement quelques parties.
+Le travail d'équipe vise à favoriser les discussions et l'entraide.
+Le travail d'équipe ne vise pas à réduire la tâche.
+Ainsi, se diviser la tâche en deux n'est pas une méthode de travail d'équipe appropriée dans ce cours.
+La participation inadéquate des membres de l'équipe peut être considérée comme du plagiat.
+Le professeur et le correcteur pourront sélectionner quelques équipes au hasard afin de vérifier que tous les membres sont capables d'expliquer l'ensemble du travail.
+</p>
+
+<h2>Tests</h2>
+Des tests sont disponibles dans <a href="tp2-tests.tar.bz2">tp2-tests.tar.bz2</a>.
+La lettre en majuscule dans le nom des fichiers indique le critère de correction associé.
+</p>
+<p class="nouveau">
+Aucun fichier test ne vérifie vraiment la limite <tt>distanceTotalMax</tt>.
+Il vous appartient de bien tester par vous-même.
+</p>
+
+<h3>Exécution des tests sur votre propre machine</h3>
+<p>Pour exécuter les tests, vous devez décompresser le fichier <code>tp2-tests.tar.bz2</code>.
+   Les fichiers tests et le script <code>evaluer.sh</code> ne doivent pas être dans le même répertoire que votre programme <code>tp2</code>.
+Le script utilise un valideur qui doit être compilé une fois à partir du code source <code>valideur.cpp</code>.
+</p>
+<pre><b>cd tp2
+make tp2
+wget http://ericbeaudry.uqam.ca/INF3105/tp2/tp2-tests.tar.bz2
+unzip tp2-tests.tar.bz2
+cd tests
+g++ valideur.cpp -o valideur
+cd ..
+./tests/evaluer.sh
+</b>
+...
+Évaluation du TP2
+...
+<u>Test    	CPU	Mém.(k)	Validation                                                   </u>
+exemple1.txt	0.00	3616k	27 bon(s)	0 erreur(s)	/27	|	OK
+exemple2.txt	0.00	3336k	20 bon(s)	0 erreur(s)	/20	|	OK
+exemple3.txt	0.00	3312k	19 bon(s)	0 erreur(s)	/19	|	OK
+exemple4.txt	0.00	3200k	12 bon(s)	0 erreur(s)	/12	|	OK
+exemple5.txt	0.00	3580k	15 bon(s)	0 erreur(s)	/15	|	OK
+testC0.txt	0.00	3344k	33 bon(s)	0 erreur(s)	/33	|	OK
+testC1.txt	0.00	3676k	303 bon(s)	0 erreur(s)	/303	|	OK
+testC2.txt	0.00	3624k	359 bon(s)	0 erreur(s)	/359	|	OK
+testC3.txt	0.02	4020k	364 bon(s)	0 erreur(s)	/364	|	OK
+testC4.txt	2.76	9432k	3435 bon(s)	0 erreur(s)	/3435	|	OK
+testC5.txt	38.17	16056k	30500 bon(s)	0 erreur(s)	/30500	|	OK
+testC6.txt	22.46	36752k	3251 bon(s)	0 erreur(s)	/3251	|	OK
+testD0.txt	0.00	3628k	402 bon(s)	0 erreur(s)	/402	|	OK
+testD1.txt	0.01	3700k	3110 bon(s)	0 erreur(s)	/3110	|	OK
+testD2.txt	0.56	4900k	6300 bon(s)	0 erreur(s)	/6300	|	OK
+testD3.txt	37.36	13180k	30600 bon(s)	0 erreur(s)	/30600	|	OK
+testE0.txt	0.00	3572k	402 bon(s)	0 erreur(s)	/402	|	OK
+testE1.txt	0.01	3680k	3110 bon(s)	0 erreur(s)	/3110	|	OK
+testE2.txt	390.48	4888k	6300 bon(s)	0 erreur(s)	/6300	|	OK
+...
+</pre>
+
+<h3>Exécution des tests sur le serveur Malt</h3>
+<p>
+ Les fichiers tests sont déjà dans le répertoire <tt>/home/inf3105/tp2/</tt>.
+ Vous n'avez pas besoin de télécharger <tt>tp1-tests.zip</tt>.
+ </p>
+ <pre><b>ssh votre_codems@malt.labunix.uqam.ca
+cd tp2
+make tp2
+/home/inf3105/tp2/evaluer.sh</b>
+Évaluation du TP2 d'INF3105...
+...
+<u>Test    	CPU	Mém.(k)	Validation</u>
+exemple1.txt	0.00	1384k	27 bon(s)	0 erreur(s)	/27	|	OK
+exemple2.txt	0.00	1288k	20 bon(s)	0 erreur(s)	/20	|	OK
+exemple3.txt	0.00	1292k	19 bon(s)	0 erreur(s)	/19	|	OK
+exemple4.txt	0.00	1292k	12 bon(s)	0 erreur(s)	/12	|	OK
+exemple5.txt	0.00	1384k	15 bon(s)	0 erreur(s)	/15	|	OK
+testC0.txt	0.00	1296k	33 bon(s)	0 erreur(s)	/33	|	OK
+testC1.txt	0.00	1416k	303 bon(s)	0 erreur(s)	/303	|	OK
+testC2.txt	0.00	1440k	359 bon(s)	0 erreur(s)	/359	|	OK
+testC3.txt	0.02	1676k	364 bon(s)	0 erreur(s)	/364	|	OK
+testC4.txt	4.57	7792k	3435 bon(s)	0 erreur(s)	/3435	|	OK
+testC5.txt	77.59	15476k	30500 bon(s)	0 erreur(s)	/30500	|	OK
+testC6.txt	47.64	38428k	3251 bon(s)	0 erreur(s)	/3251	|	OK
+testD0.txt	0.00	1404k	402 bon(s)	0 erreur(s)	/402	|	OK
+testD1.txt	0.02	1484k	3110 bon(s)	0 erreur(s)	/3110	|	OK
+testD2.txt	0.94	2788k	6300 bon(s)	0 erreur(s)	/6300	|	OK
+testD3.txt	74.66	11860k	30600 bon(s)	0 erreur(s)	/30600	|	OK
+testE0.txt	0.00	1404k	402 bon(s)	0 erreur(s)	/402	|	OK
+testE1.txt	0.02	1484k	3110 bon(s)	0 erreur(s)	/3110	|	OK
+testE2.txt	119.94	2540k	1889 bon(s)	0 erreur(s)	/1890	|	OK_interrompu
+ </pre>
+
+<h2>Remise</h2>
+<h3>Électronique</h3>
+<p>
+Vous devez remettre tous vos fichiers sources du TP2 <b>au plus tard
+le dimanche <span class="nouveau"><strike>12</strike> 19</span> novembre 2017
+à 24h00</b> (23h59m + 1 minute).
+La remise doit être faite via <a href="http://oto.uqam.ca/">le système Oto</a>.
+Il est recommandé d'effectuer la remise en ligne de commande sur le serveur <tt>oto.labunix.uqam.ca</tt>.
+</p>
+<p>
+Avant de soumettre votre travail, il est fortement conseillé de le vérifier sommairement.
+Exemple :
+</p><blockquote><pre>oto verifier_tp beaudry_er INF3105-TP2 Makefile *.h *.cpp
+</pre></blockquote>
+<p></p>
+
+<p>
+Exemple de commande pour remettre votre TP2:
+</p><blockquote><pre>oto rendre_tp beaudry_er INF3105-TP2 CODE0000001,CODE0000002 Makefile *.h *.cpp
+</pre></blockquote>
+<p></p>
+
+<p>
+Exemple de commande pour obtenir une confirmation de remise:
+</p><blockquote><pre>oto confirmer_remise beaudry_er INF3105-TP2 CODE0000001,CODE0000002
+</pre></blockquote>
+
+<p>
+Vous pouvez soumettre votre TP autant de fois que vous voulez.
+Seule la dernière soumission sera considérée.
+</p>
+
+<h3>Papier</h3>
+<p>
+Vous devez remettre tous vos fichiers sources du TP2 <b>au plus tard
+lors du cours suivant la remise électronique, soit le <strike>14</strike> <span class="nouveau">21</span> novembre (groupe 20) ou <strike>16</strike> <span class="nouveau">23</span> novembre (groupe 40)</b>.
+</p>
+<p>
+La partie papier est constituée d'un(e):
+<ol>
+<li><b>Formulaire de remise imprimé</b> 
+[ <a href="tp2-formulaire.pdf">PDF</a> | <a href="tp2-formulaire.odt">OpenDocument</a>  | <a href="tp2-formulaire.docx">Word</a> ],
+<b>dûment rempli et signé.</b>
+</li>
+<li>
+<b>Autoévaluation</b>.
+</li>
+
+<li><b>[Optionnel] Tableau montrant les temps d'exécution sur les fichiers tests fournis (<code>test[C-E][0-9].txt</code>).</b>
+<ul>
+  <li>Vous <b>pourrez</b> générer un rapport automatiquement en lançant le script <code>evaluer.sh</code> (voir section 5).
+</li></ul>
+</li>
+
+<li><b>Analyse de la complexité temporelle en notation grand O de chacune des commandes suivantes:</b>
+      <ul>
+         <li>PLACER;</li>
+         <li>APPROV;</li>
+         <li>RAMASSER; et</li>
+         <li>RECOMMANDER.</li>
+      </ul>
+  Les complexités temporelles devraient être exprimées en fonction de : 
+  <ul>
+   <li><i>n</i> indique nombre d'épiceries;</li>
+   <li><i>m</i> indique nombre de types de produit différents;</li>
+   <li><i>k</i> indique nombre d'items sur la liste de la commande;</li>
+   <li>et de tout autre variable que vous jugeriez pertinent.</li>
+  </ul>
+  </li>
+
+
+<li><b>Code source.</b>
+<ul>
+ <li>Imprimez tout votre code source, <u>à l'exception</u> des classes fournies partiellement ou en totalité dans les notes de cours (ex.: <code>Pile</code>, <code>ArbreAVL</code> et <code>ArbreMap</code>).</li>
+ <li>L'impression doit être faite à l'aide d'un éditeur de texte mettant la syntaxe C++ en évidence,
+     comme <a href="http://projects.gnome.org/gedit/">GEdit</a> ou <a href="http://notepad-plus-plus.org/">Notepad++</a>.</li>
+ <li>N'imprimez pas depuis un logiciel de traitement de texte comme Word.</li>
+ <li>Pour réduire la consommation de papier, SVP, imprimez dans un format 2 pages par côté de feuille et en recto-verso (4 pages par feuille).</li>
+ <li>Le code source doit être présenté dans un ordre convenable.
+     Par exemple, les fichiers d'entête <code>.h</code> devraient venir immédiatement avant les fichiers source <code>.cpp</code>.
+ </li>
+
+</ul>
+</li>
+</ol>
+
+<p>
+Vous pouvez remettre la partie papier sur des feuilles <b>brochées</b> (évitez les trombones et les enveloppes) au début d'un cours.
+</p>
+<p>
+Vous pouvez aussi remettre la partie papier dans la chute à travaux tout juste à côté du PK-4151.
+</p>
+
+<p>
+Les correcteurs vous feront des commentaires constructifs directement sur la partie papier qui vous sera ensuite retournée.
+</p>
+
+<h2>Évaluation</h2>
+<p>
+Ce travail pratique vaut 20% de la note finale. 
+</p>
+<h3>Grille d'évaluation</h3>
+
+<table border="1" cellpadding="2" cellspacing="1">
+ <tbody><tr valign="top" bgcolor="#d7eef4">
+  <td><b>Critère</b></td>
+  <td><b>Description</b></td>
+  <td><b>Pondération</b></td>
+ </tr>
+ <tr valign="top">
+  <td>A.</td>
+  <td><b>Respect des directives pour la remise</b>
+   <ul>
+      <li>Fichiers sources (Makefile, .h, .cpp) seulement. Aucun fichier binaire (.o, exécutable). Aucun fichier test.</li>
+      <li>Remise adéquate par Oto. Pas de remise par courriel.</li>
+      <li>Compilable avec <code>make</code> sans modifications.</li>
+      <li>Respecte l'interface d'entrée/sortie..</li>
+    </ul>
+  </td>
+  <td align="center">/ 2</td>
+ </tr> 
+ <tr valign="top">
+  <td>B.</td>
+  <td><b>Appréciation générale</b>
+   <ul>
+      <li>Structure du programme + Qualité du code :</li>
+      <ul>
+        <li>Choix des types de données; identificateurs (noms)
+          significatifs, lisibilité du code, pertinence des
+          commentaires; etc.</li>
+        <li>Justesse de l'usage du mot-clé <code>const</code>, des
+          références (&amp;) et des pointeurs (*).</li>
+      </ul>
+      <li>Encapsulation : <br>
+      </li>
+      <ul>
+        <li>Respect des principes de l'abstraction; utilisation
+          appropriée de <code>public</code>, <code>private</code><code>,</code>
+          <code>friend</code>, etc.</li>
+        <li>Cachez le maximum de la représentation des objets en
+          rendant un maximum d'attributs privés;</li>
+        <li>Évitez autant que possible les bris d'abstraction, comme des <i>getters</i>
+          et <i>setters</i> qui retournent ou affectent
+          directement des attributs d'un type abstrait de
+          donnée. Par exemple, les fonctions <code>getLatitude()</code> et
+          <code>getLongitude()</code> ne devraient pas exister dans une
+          classe <code>PointST</code>.
+          Mais, une fonction <code>getNom()</code>dans une classe <code>Épicerie</code> peut être justifiée.
+        </li>
+      </ul>
+      <li>Gestion de la mémoire : <br>
+      </li>
+      <ul>
+        <li>Toute la mémoire allouée dynamiquement doit être
+          correctement libérée au moment approprié et avant la
+          fin du programme.</li>
+      </ul>
+    </ul>  
+  </td>
+  <td align="center">/ 3</td>
+ </tr> 
+ <tr valign="top">
+  <td>C.</td>
+  <td><b>Fonctionnement de base</b><br>
+   <p>
+   Les commandes RECOMMANDER auront nbMaxÉpicerie = 1.
+   Les dates d'expiration peuvent être ignorées.
+   </p>
+  </td>
+  <td align="center">/ 3</td>
+ </tr>
+ <tr valign="top">
+  <td>D.</td>
+  <td><b>Fonctionnement de base avec dates d'expiration.</b>
+     <p>
+     Item C, excepté que les dates d'expiration doivent être considérées.
+     </p>
+  </td>
+  <td align="center">/ 3</td>
+ </tr>
+ <tr valign="top">
+  <td>E.</td>
+  <td><b>Fonctionnement correct complet.</b>
+     <p>
+      La majorité des tests seront avec des commandes RECOMMANDER ayant nbMaxÉpicerie = 1 à 3 épiceries.
+     </p>
+  </td>
+  <td align="center">/ 4</td>
+ </tr>
+ <tr valign="top">
+  <td>F.</td>
+  <td><b>Efficacité</b>
+   <p>Votre programme doit utiliser judicieusement les arbres binaires de recherche.</p>
+  </td>
+  <td align="center">/ 3</td>
+ </tr> 
+ <tr valign="top">
+  <td>G.</td>
+  <td><b>Analyse des algorithmes</b>
+      <p>Complexité temporelle des fonctions et justification.</p>
+  </td>
+  <td align="center">/ 2</td>
+ </tr>
+ <tr valign="top" bgcolor="#d7eef4">
+  <td></td>
+  <td align="right">Total : </td>
+  <td align="center">/ 20</td>
+ </tr>
+ <tr valign="top">
+  <td>H.</td>
+  <td><b>Boni : Efficacité avancée</b>
+<ol>
+  <li>
+  Jusqu'à 1 point boni peut être accordé si votre programme s'exécute <b>significativement</b> plus rapidement que les temps médians des programmes du groupe.
+  </li>
+  <li>Un deuxième point boni peut être accordé à l'équipe qui aura les meilleurs temps d'exécution.</li>
+  <p></p>
+  </ol>
+  <p>
+  Avertissements :
+   </p><ol>
+    <li>Pour être éligible aux points bonis, il faut obtenir 10/10 aux critère C, D et E.</li>
+    <li>Implémenter une version efficace peut parfois demander beaucoup de temps et être une source de bogues, et ce, pour seulement 1 point boni.</li>
+    <li>Il existe souvent un compromis entre l'efficacité d'un logiciel et ses autres qualités, comme le fonctionnement correct, la robustesse, la lisibilité du code, la maintenabilité, etc.
+        Vous devez donc être prudents.
+        Évitez les sacrifices qui pourraient vous pénaliser aux autres critères dont B, C, D et E.
+    </li>
+   <ol>
+  </td>
+  <td align="center">+ 2</td>
+ </tr> 
+ <tr valign="top">
+  <td>I.</td>
+  <td><b>Pénalité : Utilisation de la STL</b>
+  <p>
+  Un des objectifs du TP2 est d'implémenter l'arbre AVL tel que présenté en classe et dans les notes de cours.
+  À noter que les Lab6 et Lab7 viseront à compléter l'implémentation d'un arbre AVL et d'un dictionnaire (ArbreMap).
+  Si vous éprouvez des difficultés à réaliser votre propre implémentation d'arbre AVL,
+  il est permis d'utiliser les conteneurs de la librairie standard de C++ (la STL), dont les classes <code>set</code> et <code>map</code>.
+  Toutefois, une pénalité de 3 points sera appliquée.
+  </p>
+  </td>
+  <td align="center">- 3</td>
+ </tr> 
+ <tr valign="top" bgcolor="#d7eef4">
+  <td></td>
+  <td align="right">Note maximale : </td>
+  <td align="center">22 / 20</td>
+ </tr>
+</tbody></table>
+
+<p>
+* Bien que les critères C, D et E visent le fonctionnement correct en premier lieu,
+l'efficacité peut être indirectement évaluée lorsqu'un programme ne parvient pas à produire des résultats dans des délais raisonnables.
+</p>
+<p>
+Pour les cas problématiques, jusqu'à 3 points peuvent être retranchés pour la qualité de la langue ou de la présentation.
+</p>
+
+
+
+</div> <!-- Fin contenu -->
+
+
+<footer>
+<div align="center">/* © Éric Beaudry et Aléna Tsikhanovich 2017. Tous droits réservés. */</div>
+</footer>
+
+</body>
+</html>
