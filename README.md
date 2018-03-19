@@ -10,13 +10,13 @@ http://htmlpreview.github.io/?https://github.com/CharlesBaribeau/Projet_Epicerie
     à partir du répertoire contenant le Makefile (tp2/) :
     * make tp2
     * ./tests/evaluer.sh
-    Le symbole _==_ dans la colonne validation signifie que le résultat est bon.
+    Le symbole == dans la colonne validation signifie que le résultat est bon.
 
 ## Structures de données
-    * _tableau.h_ contient une structure de données personnalisée semblable à _vector_ de la std.
-    * _pile.h_ contient une structure de données personnalisée semblable à _stack_ de la std.
-    * _arbreavl.h_ contient une strcture de données personnalisée semblable à _set_ de la std.
-    * _arbremap.h_ contient une structure de données personnalisée semblable à _map_ de la std.
-    * _date.h_ contient une structure de données représentant une date.
-    * _epicerie.h_ contient une structure de données personnalisée représentant une épicerie.
-    * _pointst.h_ contient une structure de données personnalisée représentant la position d'un objet sur la carte.
+    * tableau.h contient une structure de données personnalisée semblable à vector de la std.
+    * pile.h contient une structure de données personnalisée semblable à stack de la std.
+    * arbreavl.h contient une strcture de données personnalisée semblable à set de la std.
+    * arbremap.h contient une structure de données personnalisée semblable à map de la std.
+    * date.h contient une structure de données représentant une date.
+    * epicerie.h contient une structure de données personnalisée représentant une épicerie.
+    * pointst.h contient une structure de données personnalisée représentant la position d'un objet sur la carte.
