@@ -3,6 +3,8 @@ Système de recommandation du plus court trajet pour compléter son épicerie.
 
 * Pour voir l'énoncé du travail et son utilisation:
 http://htmlpreview.github.io/?https://github.com/CharlesBaribeau/Projet_Epicerie/blob/master/tp2.html
+* Langage utilisé : C++
+* Note obtenue : 21/20
 
 ## Utilisation
     Une erreur de validation se produit dans vérification des réponses des tests automatiques fournis par
